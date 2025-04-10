@@ -6,6 +6,18 @@
         "-y",
         "@mastra/mcp-docs-server@latest"
       ]
+    },
+    "brave-search": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "BSAKnvYz2PUQmzoPxzkSVIo0ztxEY_h"
+      }
     }
   }
 }

@@ -9,7 +9,6 @@ export const mastra = new Mastra({
   workflows: { weatherWorkflow },
   agents: { multiAgent, mcpAgent },
   logger: createLogger({
-    name: 'Mastra',
-    level: 'info',
+    level: 'debug',
   }),
 });

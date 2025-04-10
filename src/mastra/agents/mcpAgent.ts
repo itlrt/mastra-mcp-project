@@ -1,37 +1,73 @@
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
 import { MCPConfiguration } from "@mastra/mcp";
+import { openrouter } from "@openrouter/ai-sdk-provider";
+import { createOllama } from "ollama-ai-provider";
+import { Memory } from "@mastra/memory";
+import { PostgresStore, PgVector } from "@mastra/pg";
 
 const mcp = new MCPConfiguration({
   servers: {
-    // stdio example
-    "github": {
-      "command": "/Users/user/.volta/bin/npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-brave-search"
+    braveSearch: {
+      command: "docker",
+      args: [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "BRAVE_API_KEY=BSAKnvYz2PUQmzoPxzkSVIo0ztxEY_h",
+        "mcp/brave-search"
       ],
       env: {
-        "BRAVE_API_KEY": process.env.BRAVE_API_KEY,
-      },
+        BRAVE_API_KEY: "BSAKnvYz2PUQmzoPxzkSVIo0ztxEY_h"
+      }
     },
   },
 });
 
+const connectionString = process.env.POSTGRES_CONNECTION_STRING;
+if (!connectionString) {
+  throw new Error('POSTGRES_CONNECTION_STRING tidak ditemukan di .env');
+}
+
+const pgVector = new PgVector(connectionString);
+
+const memory = new Memory({
+  storage: new PostgresStore({
+    connectionString
+  }),
+  vector: pgVector,
+  options: {
+    lastMessages: 5,
+    semanticRecall: {
+      topK: 3,
+      messageRange: 5
+    }
+  },
+});
+
+const ollama = createOllama({
+  baseURL: process.env.OLLAMA_API_URL,
+});
+
+const mcpTools = await mcp.getTools();
+
 export const mcpAgent = new Agent({
   name: "MCP Agent",
   instructions: `
-      あなたはウェブ検索ができる便利なアシスタントです。
+      Anda adalah asisten yang berguna yang dapat melakukan pencarian web.
 
-      【情報を求められた場合】
-      webSearchToolを使用してウェブ検索を実行してください。webSearchToolは以下のパラメータを受け付けます：
-      - query: 検索クエリ（必須）
-      - country: 検索結果の国コード（例: JP, US）（オプション）
-      - count: 返される検索結果の最大数（オプション）
-      - search_lang: 検索言語（例: ja, en）（オプション）
+      【Ketika diminta informasi】
+      Gunakan webSearchTool untuk melakukan pencarian web. webSearchTool menerima parameter berikut:
+      - query: kueri pencarian (wajib)
+      - country: kode negara untuk hasil pencarian (contoh: JP, US) (opsional)
+      - count: jumlah maksimum hasil pencarian yang dikembalikan (opsional)
+      - search_lang: bahasa pencarian (contoh: ja, en) (opsional)
 
-      回答は常に簡潔ですが情報量を保つようにしてください。ユーザーの質問に直接関連する情報を優先して提供してください。
+      Jawaban harus selalu ringkas tetapi tetap informatif. Prioritaskan informasi yang langsung terkait dengan pertanyaan pengguna.
   `,
-  model: anthropic("claude-3-5-sonnet-20241022"),
-  tools: await mcp.getTools(),
+  model: openrouter("openrouter/quasar-alpha"),
+  tools: mcpTools,
+  memory,
 });
+ 
